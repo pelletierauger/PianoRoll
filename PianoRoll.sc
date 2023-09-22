@@ -44,7 +44,7 @@ PianoRoll : SCViewHolder {
         ySpec = ySpec.asSpec;//ControlSpec(0, 127, \lin, 1, 64);
         translate = Point(0, 0);
         selected = List.new;
-        selectedStrokeColor = Color.blue;
+        selectedStrokeColor = Color.white;
         highlighted = List.new;
         highlightedStrokeColor = Color.green;
         messagequeue = [];
@@ -132,7 +132,9 @@ PianoRoll : SCViewHolder {
                         var noteName = notes[num - (oct * 12)];
                         noteName.collect({|i, item| i ++ (oct - 1)});
                     };
-                    Pen.fillColor_(case(
+                    var normVel = note[\velocity] / 127;
+                    Pen.fillColor_(Color.new(1, 1 - normVel, 1 - normVel));
+                    Pen.strokeColor_(case(
                         { this.isSelected(note) }, {
                             selectedStrokeColor;
                         },
@@ -140,15 +142,25 @@ PianoRoll : SCViewHolder {
                             highlightedStrokeColor;
                         },
                         true, {
-                            Color.red;
+                            Color.black;
                         },
                     ));
-                    Pen.strokeColor_(Color.black);
+/*                    Pen.width_(case(
+                        { this.isSelected(note) }, {
+                            3;
+                        },
+                        { this.isHighlighted(note) }, {
+                            3;
+                        },
+                        true, {
+                            2;
+                        },
+                    ));*/
                     Pen.addRect(rect);
                     Pen.draw(3);
-                    Pen.color_(Color.black);
-                    Pen.stringCenteredIn((toNote.(note[\midinote])[0]).asString, rect, Font("Inconsolata", 16));
-                    Pen.stroke;
+/*                    Pen.color_(Color.black);
+                    Pen.stringCenteredIn((toNote.(note[\midinote])[0]).asString ++ " / " ++ (note[\velocity]).asString, rect, Font("Inconsolata", 16));
+                    Pen.stroke;*/
                 });
             };
             Pen.translate((sidebarWidth+translate.x).neg, (topbarHeight+translate.y).neg);
@@ -231,6 +243,8 @@ PianoRoll : SCViewHolder {
         uv.keyDownAction_({
             | view char modifiers unicode keycode |
             var res = keymap.keyDown(Keymap.stringifyKey(modifiers, keycode));
+            keycode.postln;
+            modifiers.postln;
             case(
                 { res.isKindOf(Function) }, {
                     res.value(this);
@@ -242,6 +256,20 @@ PianoRoll : SCViewHolder {
                     res.value;
                 },
             );
+            case (
+                {keycode == 126 }, {
+                if (modifiers == 2359296, {
+                    Message(this, \increaseVelSelected, []).value;
+                }, {
+                    Message(this, \raiseSelected, []).value;
+                });
+            }, {keycode == 125 }, {
+                if (modifiers == 2359296, {
+                    Message(this, \decreaseVelSelected, []).value;
+                }, {
+                    Message(this, \lowerSelected, []).value;
+                });
+            });
         });
         uv.mouseDownAction_({
             | view x y modifiers buttonNumber clickCount |
@@ -308,6 +336,7 @@ PianoRoll : SCViewHolder {
                                             midinote: (this.pointToY(x@y)+(vquant/2)).round(vquant),
                                             sustain: this.newNoteSustain,
                                             beat: (this.pointToBeat(x@y)-(beatQuant/2)).round(beatQuant),
+                                            velocity: 63
                                         ));
                                     });
                                 },
@@ -511,6 +540,34 @@ PianoRoll : SCViewHolder {
             this.delete(item);
         });
         this.deselectAll;
+    }
+    raiseSelected {
+        this.selected.do({
+            | item |
+            item.midinote = min(item.midinote + 1, 127);
+        });
+        this.refresh;
+    }
+    lowerSelected {
+        this.selected.do({
+            | item |
+            item.midinote = max(item.midinote - 1, 0);
+        });
+        this.refresh;
+    }
+    increaseVelSelected {
+        this.selected.do({
+            | item |
+            item.velocity = min(item.velocity + 5, 127);
+        });
+        this.refresh;
+    }
+    decreaseVelSelected {
+        this.selected.do({
+            | item |
+            item.velocity = max(item.velocity - 5, 0);
+        });
+        this.refresh;
     }
     edit {
         | obj |
