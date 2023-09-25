@@ -11,11 +11,12 @@ PianoRoll : SCViewHolder {
     var <>selectedStrokeColor;
     var <>highlightedStrokeColor;
     var <ySpec=\midinote;
+    var <>propDisplay='midinote';
     var <vSize = 20; // size of each row in pixels
     var <vquant;
     var <beatSize = 80; // size of each beat in pixels
     var <beatQuant = 0.25; // x quantizing
-    var <sidebarWidth = 60, <topbarHeight = 20;
+    var <sidebarWidth = 60, <topbarHeight = 60;
 
     var <>selected; // list of selected notes
     var <>highlighted; // list of highlighted notes
@@ -133,7 +134,14 @@ PianoRoll : SCViewHolder {
                         noteName.collect({|i, item| i ++ (oct - 1)});
                     };
                     var normVel = note[\velocity] / 127;
-                    Pen.fillColor_(Color.new(1, 1 - normVel, 1 - normVel));
+                    var displayText;
+                    if (this.propDisplay == 'midinote', {
+                        displayText = toNote.(note.midinote)[0];
+                    }, {
+                        displayText = note[this.propDisplay].asString;
+                    });
+                    // Pen.fillColor_(Color.new(1, 1 - normVel, 1 - normVel));
+                    Pen.fillColor_(note.color.blend(Color.white, 1 - normVel));
                     Pen.strokeColor_(case(
                         { this.isSelected(note) }, {
                             selectedStrokeColor;
@@ -145,22 +153,24 @@ PianoRoll : SCViewHolder {
                             Color.black;
                         },
                     ));
-/*                    Pen.width_(case(
-                        { this.isSelected(note) }, {
-                            3;
-                        },
-                        { this.isHighlighted(note) }, {
-                            3;
-                        },
-                        true, {
-                            2;
-                        },
+                    /*                    Pen.width_(case(
+                    { this.isSelected(note) }, {
+                    3;
+                    },
+                    { this.isHighlighted(note) }, {
+                    3;
+                    },
+                    true, {
+                    2;
+                    },
                     ));*/
                     Pen.addRect(rect);
                     Pen.draw(3);
-/*                    Pen.color_(Color.black);
-                    Pen.stringCenteredIn((toNote.(note[\midinote])[0]).asString ++ " / " ++ (note[\velocity]).asString, rect, Font("Inconsolata", 16));
-                    Pen.stroke;*/
+                    Pen.color_(Color.black);
+                    // ++ " / " ++ (note[\velocity]
+
+                    Pen.stringCenteredIn(displayText, rect, Font("Inconsolata", 16));
+                    Pen.stroke;
                 });
             };
             Pen.translate((sidebarWidth+translate.x).neg, (topbarHeight+translate.y).neg);
@@ -175,7 +185,7 @@ PianoRoll : SCViewHolder {
                     var xpos = ((n+hOffset)*beatSize)+sidebarWidth+translate.x;
                     var num = (n+hOffset);
                     Pen.color_(if(num < this.sequence.dur, Color.white, Color.grey(0.65))); // show dur of sequence
-                    Pen.stringCenteredIn(num.asString, Rect(xpos, 0, beatSize, topbarHeight));
+                    Pen.stringCenteredIn(num.asString, Rect(xpos, 20, beatSize, topbarHeight));
                 });
                 Pen.stroke;
             });
@@ -257,18 +267,32 @@ PianoRoll : SCViewHolder {
                 },
             );
             case (
-                {keycode == 126 }, {
-                if (modifiers == 2359296, {
-                    Message(this, \increaseVelSelected, []).value;
-                }, {
-                    Message(this, \raiseSelected, []).value;
-                });
-            }, {keycode == 125 }, {
-                if (modifiers == 2359296, {
-                    Message(this, \decreaseVelSelected, []).value;
-                }, {
-                    Message(this, \lowerSelected, []).value;
-                });
+                {keycode == 17 }, {
+                    ~prt.doAction;
+                }, {keycode == 15 }, {
+                    var str = ~pr.selected[0].asString;
+                    if (~pr.selected[0].isKindOf(Event), {
+                        var st = str.replace("( ", "");
+                        st = st.replace(" )", "");
+                        ~prt.string = st;
+                    });
+                }, {keycode == 126 }, {
+                    if (modifiers == 2359296, {
+                        Message(this, \increaseVelSelected, []).value;
+                    }, {
+                        if (modifiers == 2228224,
+                            {Message(this, \raiseSelectedOct, []).value;},
+                            {Message(this, \raiseSelected, []).value;});
+                    });
+                }, {keycode == 125 }, {
+                    if (modifiers == 2359296, {
+                        Message(this, \decreaseVelSelected, []).value;
+                    }, {
+                        if (modifiers == 2228224,
+                            {Message(this, \lowerSelectedOct, []).value;},
+                            {Message(this, \lowerSelected, []).value;});
+
+                    });
             });
         });
         uv.mouseDownAction_({
@@ -336,7 +360,8 @@ PianoRoll : SCViewHolder {
                                             midinote: (this.pointToY(x@y)+(vquant/2)).round(vquant),
                                             sustain: this.newNoteSustain,
                                             beat: (this.pointToBeat(x@y)-(beatQuant/2)).round(beatQuant),
-                                            velocity: 63
+                                            velocity: 63,
+                                            color: Color.red
                                         ));
                                     });
                                 },
@@ -555,6 +580,20 @@ PianoRoll : SCViewHolder {
         });
         this.refresh;
     }
+    raiseSelectedOct {
+        this.selected.do({
+            | item |
+            item.midinote = min(item.midinote + 12, 127);
+        });
+        this.refresh;
+    }
+    lowerSelectedOct {
+        this.selected.do({
+            | item |
+            item.midinote = max(item.midinote - 12, 0);
+        });
+        this.refresh;
+    }
     increaseVelSelected {
         this.selected.do({
             | item |
@@ -659,7 +698,7 @@ PianoRoll : SCViewHolder {
     }
     pointToBeat { // return the "beat" at the point. must be a non-translated point. - FIX
         | point | // should also accept numbers instead of just Points.
-        var ix = if(point.isKindOf(Point), { point.x }, point) - sidebarWidth;
+        var ix = if(point.isKindOf(Point), { point.x - this.translate.x }, point) - sidebarWidth;
         ^(ix/beatSize);
     }
     pointToY { // return the y value at the point. must be a non-translated point. - FIX
