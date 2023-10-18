@@ -26,6 +26,7 @@ PianoRoll : SCViewHolder {
     var <sequence;
     var newNoteSustain=\last;
     var <>messagequeue, <>keymap;
+    var scrollCount = 0;
 
     *initClass {
         Spec.add(\midinote, [0, 127, \lin, 1, 60]); // i have no idea why the default step for \midinote is 0...
@@ -267,7 +268,11 @@ PianoRoll : SCViewHolder {
                 },
             );
             case (
-                {keycode == 17 }, {
+                {keycode == 12 }, {
+                    ~pr.doubleQuant;
+                },{keycode == 13 }, {
+                    ~pr.halveQuant;
+                },{keycode == 17 }, {
                     ~prt.doAction;
                 }, {keycode == 15 }, {
                     var str = ~pr.selected[0].asString;
@@ -420,13 +425,23 @@ PianoRoll : SCViewHolder {
                     });
                     tview.refresh;
                 },
-                1, {
+/*                1, {
                     this.getAtPoint(x@y).do({
                         | item |
                         this.delete(item);
                     });
                     uv.refresh;
-                },
+                },*/
+                1, {
+                    if (scrollCount % 4 == 0, {
+                var newtrans = this.translate;
+                var diff = ((x@y) - mouseDownPoint);
+                newtrans.x = (newtrans.x + (diff.x.sign*(beatSize*beatQuant)));
+                newtrans.y = (newtrans.y + (diff.y.sign*vSize));
+                this.translate_(newtrans);
+                    });
+                    scrollCount = scrollCount + 1;
+            }
             );
         });
         uv.mouseUpAction_({
@@ -464,14 +479,19 @@ PianoRoll : SCViewHolder {
         });
         uv.mouseWheelAction_({
             | view x y modifiers xDelta yDelta |
-            if(modifiers.isCtrl, { // zoom
-                beatSize = beatSize + (yDelta.sign * 10);
+            if(modifiers.isAlt, { // zoom
+                beatSize = max(10, beatSize + (yDelta.sign * 10));
                 this.refresh;
             }, {
                 var newtrans = this.translate;
+                // if (scrollCount % 256 == 0, {
                 newtrans.x = (newtrans.x + (xDelta.sign*(beatSize*beatQuant)));
                 newtrans.y = (newtrans.y + (yDelta.sign*vSize));
-                this.translate_(newtrans);
+
+                    this.translate_(newtrans);
+                    // scrollCount.postln;
+                // });
+                // scrollCount = scrollCount + 1;
             });
         });
         this.centerOn(\midinote.asSpec.default);
@@ -767,7 +787,7 @@ PianoRoll : SCViewHolder {
     beatQuant_ {
         | quant |
         beatQuant = quant;
-        this.message("beatQuant set to" + quant.asString);
+        // this.message("beatQuant set to" + quant.asString);
         this.refresh;
     }
     centerOn { // FIX
