@@ -17,6 +17,8 @@ PianoRoll : SCViewHolder {
     var <beatSize = 80; // size of each beat in pixels
     var <beatQuant = 0.25; // x quantizing
     var <sidebarWidth = 60, <topbarHeight = 60;
+    var <eventEditor;
+    var <noteVelButton;
 
     var <>selected; // list of selected notes
     var <>highlighted; // list of highlighted notes
@@ -252,10 +254,13 @@ PianoRoll : SCViewHolder {
             ['C-h', '?']: \help,
         ));
         uv.keyDownAction_({
-            | view char modifiers unicode keycode |
+            | view char modifiers unicode keycode key |
             var res = keymap.keyDown(Keymap.stringifyKey(modifiers, keycode));
-            keycode.postln;
-            modifiers.postln;
+            // keycode.postln;
+            // modifiers.postln;
+            // unicode.postln;
+            // char.postln;
+            // ("key:" ++ key).postln;
             case(
                 { res.isKindOf(Function) }, {
                     res.value(this);
@@ -268,18 +273,36 @@ PianoRoll : SCViewHolder {
                 },
             );
             case (
-                {keycode == 12 }, {
+                {key == 65 }, {
+                    if (modifiers == 1048576, {
+                        // Select All
+                        sequence.rawList.do {
+                            | note n |
+                            this.select(note);
+                        };
+                        this.refresh;
+                    });
+                },{keycode == 2 }, {
+                    if (modifiers == 1048576, {
+                        // Select All
+                        sequence.rawList.do {
+                            | note n |
+                            this.deselect(note);
+                        };
+                        this.refresh;
+                    });
+                },{keycode == 12 }, {
                     ~pr.doubleQuant;
                 },{keycode == 13 }, {
                     ~pr.halveQuant;
                 },{keycode == 17 }, {
-                    ~prt.doAction;
+                    eventEditor.doAction;
                 }, {keycode == 15 }, {
                     var str = ~pr.selected[0].asString;
                     if (~pr.selected[0].isKindOf(Event), {
                         var st = str.replace("( ", "");
                         st = st.replace(" )", "");
-                        ~prt.string = st;
+                        eventEditor.string = st;
                     });
                 }, {keycode == 126 }, {
                     if (modifiers == 2359296, {
@@ -425,23 +448,23 @@ PianoRoll : SCViewHolder {
                     });
                     tview.refresh;
                 },
-/*                1, {
-                    this.getAtPoint(x@y).do({
-                        | item |
-                        this.delete(item);
-                    });
-                    uv.refresh;
+                /*                1, {
+                this.getAtPoint(x@y).do({
+                | item |
+                this.delete(item);
+                });
+                uv.refresh;
                 },*/
                 1, {
                     if (scrollCount % 4 == 0, {
-                var newtrans = this.translate;
-                var diff = ((x@y) - mouseDownPoint);
-                newtrans.x = (newtrans.x + (diff.x.sign*(beatSize*beatQuant)));
-                newtrans.y = (newtrans.y + (diff.y.sign*vSize));
-                this.translate_(newtrans);
+                        var newtrans = this.translate;
+                        var diff = ((x@y) - mouseDownPoint);
+                        newtrans.x = (newtrans.x + (diff.x.sign*(beatSize*beatQuant)));
+                        newtrans.y = (newtrans.y + (diff.y.sign*vSize));
+                        this.translate_(newtrans);
                     });
                     scrollCount = scrollCount + 1;
-            }
+                }
             );
         });
         uv.mouseUpAction_({
@@ -488,13 +511,49 @@ PianoRoll : SCViewHolder {
                 newtrans.x = (newtrans.x + (xDelta.sign*(beatSize*beatQuant)));
                 newtrans.y = (newtrans.y + (yDelta.sign*vSize));
 
-                    this.translate_(newtrans);
-                    // scrollCount.postln;
+                this.translate_(newtrans);
+                // scrollCount.postln;
                 // });
                 // scrollCount = scrollCount + 1;
             });
         });
         this.centerOn(\midinote.asSpec.default);
+        eventEditor = TextField(parent, Rect(sidebarWidth, 5, 750, 30));
+        eventEditor.font = Font("Inconsolata", 16);
+        eventEditor.background = Color.gray(0.5, 0);
+        eventEditor.stringColor = Color.white;
+        eventEditor.focusColor = Color.gray(0,0);
+        // o.border = Color.gray(0,0);
+        eventEditor.string = "'velocity', 127";
+        // a.action = {arg field; field.value.postln; };
+        // a.action = {arg field; field.value.compile.value; };
+        eventEditor.action = {
+            arg field;
+            var f = ("[" ++ field.value ++ "]").compile.value;
+            if (f.isKindOf(Array), {
+                if (f.size % 2 == 0, {
+                    (f.size/2).do({
+                        |j|
+                        this.selected.do({|i|i[f[j*2]] = f[j*2+1]});
+                    });
+                    this.refresh;
+                });
+            });
+            f.postln;
+        };
+        noteVelButton = Button(parent, Rect(5, 5, 50, 30))
+        .states_([
+            ["Note", Color.white, Color.gray(0.5)],
+            ["Vel", Color.white, Color.gray(0.5)]
+        ])
+        .action_({ arg butt;
+            if (butt.value == 0,{this.propDisplay = 'midinote'});
+            if (butt.value == 1,{this.propDisplay = 'velocity'});
+            this.refresh;
+        });
+        noteVelButton.font = Font("Inconsolata", 16);
+        noteVelButton.focusColor = Color(0,0,0,1);
+        noteVelButton.canFocus = false;
     }
     prNoteCompare {
         | event1 event2 |
