@@ -19,6 +19,8 @@ PianoRoll : SCViewHolder {
     var <sidebarWidth = 60, <topbarHeight = 60;
     var <eventEditor;
     var <noteVelButton;
+    var <playButton;
+    var <pdefSymbol;
 
     var <>selected; // list of selected notes
     var <>highlighted; // list of highlighted notes
@@ -256,7 +258,7 @@ PianoRoll : SCViewHolder {
         uv.keyDownAction_({
             | view char modifiers unicode keycode key |
             var res = keymap.keyDown(Keymap.stringifyKey(modifiers, keycode));
-            // keycode.postln;
+            keycode.postln;
             // modifiers.postln;
             // unicode.postln;
             // char.postln;
@@ -273,7 +275,9 @@ PianoRoll : SCViewHolder {
                 },
             );
             case (
-                {key == 65 }, {
+                {keycode == 51 }, {
+                    this.deleteSelected;
+                },{key == 65 }, {
                     if (modifiers == 1048576, {
                         // Select All
                         sequence.rawList.do {
@@ -292,14 +296,14 @@ PianoRoll : SCViewHolder {
                         this.refresh;
                     });
                 },{keycode == 12 }, {
-                    ~pr.doubleQuant;
+                    this.doubleQuant;
                 },{keycode == 13 }, {
-                    ~pr.halveQuant;
+                    this.halveQuant;
                 },{keycode == 17 }, {
                     eventEditor.doAction;
                 }, {keycode == 15 }, {
-                    var str = ~pr.selected[0].asString;
-                    if (~pr.selected[0].isKindOf(Event), {
+                    var str = this.selected[0].asString;
+                    if (this.selected[0].isKindOf(Event), {
                         var st = str.replace("( ", "");
                         st = st.replace(" )", "");
                         eventEditor.string = st;
@@ -518,7 +522,7 @@ PianoRoll : SCViewHolder {
             });
         });
         this.centerOn(\midinote.asSpec.default);
-        eventEditor = TextField(parent, Rect(sidebarWidth, 5, 750, 30));
+        eventEditor = TextField(parent, Rect(sidebarWidth*2-5, 5, 750, 30));
         eventEditor.font = Font("Inconsolata", 16);
         eventEditor.background = Color.gray(0.5, 0);
         eventEditor.stringColor = Color.white;
@@ -541,7 +545,7 @@ PianoRoll : SCViewHolder {
             });
             f.postln;
         };
-        noteVelButton = Button(parent, Rect(5, 5, 50, 30))
+        noteVelButton = Button(parent, Rect(60, 5, 50, 30))
         .states_([
             ["Note", Color.white, Color.gray(0.5)],
             ["Vel", Color.white, Color.gray(0.5)]
@@ -554,6 +558,20 @@ PianoRoll : SCViewHolder {
         noteVelButton.font = Font("Inconsolata", 16);
         noteVelButton.focusColor = Color(0,0,0,1);
         noteVelButton.canFocus = false;
+        playButton = Button(parent, Rect(5, 5, 50, 30))
+        .states_([
+            ["Play", Color.white, Color.gray(0.5)],
+            ["Pause", Color.white, Color.gray(0.5)]
+        ])
+        .action_({ arg butt;
+            if (butt.value == 0,{this.playPause(nil, nil, true);});
+            if (butt.value == 1,{this.playPause});
+            this.refresh;
+        });
+        playButton.font = Font("Inconsolata", 16);
+        playButton.focusColor = Color(0,0,0,1);
+        playButton.canFocus = false;
+        pdefSymbol = (\__pianoRoll ++ (0..1e6).choose.asString.padLeft(6, "0")).asSymbol;
     }
     prNoteCompare {
         | event1 event2 |
@@ -859,7 +877,7 @@ PianoRoll : SCViewHolder {
         this.translate = Point(this.translate.x, -1*vSize*(ySpec.maxval-num));
     }
     isPlaying {
-        ^Pdef(\__pianoRoll).hasEnded.not;
+        ^Pdef(pdefSymbol).hasEnded.not;
     }
     play {
         | start end loop=false |
@@ -875,11 +893,11 @@ PianoRoll : SCViewHolder {
                 Psync(pattern, pbeats, pbeats),
             );
         });
-        Pdef(\__pianoRoll, if(loop, Pn(pat), pat));
-        Pdef(\__pianoRoll).play;
+        Pdef(pdefSymbol, if(loop, Pn(pat), pat));
+        Pdef(pdefSymbol).play;
     }
     stop {
-        Pdef(\__pianoRoll).stop;
+        Pdef(pdefSymbol).stop;
     }
     playPause {
         | start end loop=false |
