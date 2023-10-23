@@ -172,6 +172,10 @@ PianoRoll : SCViewHolder {
                     Pen.addRect(rect);
                     Pen.draw(3);
                     Pen.color_(Color.black);
+                    if (note.deactivated == true, {
+                        // Pen.color_(Color.gray(0.5));
+                       Pen.color_(Color.new(0.0,0.0,0.0,0.25));
+                    });
                     // ++ " / " ++ (note[\velocity]
 
                     Pen.stringCenteredIn(displayText, rect, Font("Inconsolata", 16));
@@ -275,7 +279,9 @@ PianoRoll : SCViewHolder {
                 },
             );
             case (
-                {keycode == 51 }, {
+                {keycode == 2 }, {
+                    Message(this, \toggleDeactivateSelected, []).value;
+                },{keycode == 51 }, {
                     this.deleteSelected;
                 },{key == 65 }, {
                     if (modifiers == 1048576, {
@@ -702,6 +708,17 @@ PianoRoll : SCViewHolder {
         this.selected.do({
             | item |
             item.velocity = max(item.velocity - 5, 0);
+        });
+        this.refresh;
+    }
+    toggleDeactivateSelected {
+        this.selected.do({
+            | item |
+            if (item.deactivated == true, {
+               item.deactivated = false;
+            }, {
+                item.deactivated = true;
+            });
         });
         this.refresh;
     }
